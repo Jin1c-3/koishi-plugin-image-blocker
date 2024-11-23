@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-image-blocker",
   "description": "支持添加、删除违禁图片，支持相似图片。可以用来防奶龙（）",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -19,13 +19,12 @@
     "plugin"
   ],
   "peerDependencies": {
-    "koishi": "4.18.1"
+    "koishi": "^4.18.0"
   },
   "dependencies": {
     "@koishijs/cache": "^2.1.0",
     "imghash": "^0.0.9",
     "leven": "^4.0.0",
-    "sharp": "^0.33.5",
-    "tmp-promise": "^3.0.3"
+    "sharp": "^0.33.5"
   }
 }

@@ -5,7 +5,6 @@ import leven from "leven";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
-import tmp from "tmp-promise";
 
 export const name = "image-blocker";
 export const inject = ["database", "cache"];
@@ -218,9 +217,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
             await ctx.http.get(img.src, { responseType: "arraybuffer" })
           );
           const image = await sharp(buffer).png().toBuffer();
-          const { path: tempFilePath, cleanup } = await tmp.file({
-            postfix: ".png",
-          });
+          const tempFilePath = path.join(ctx.baseDir, "temp", `${img.file_unique}.png`);
           fs.writeFileSync(tempFilePath, image);
           hash = await imghash.hash(tempFilePath);
           ctx.cache.set(
@@ -229,7 +226,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
             hash,
             cache_time * 60 * 60 * 1000
           );
-          await cleanup();
+          fs.unlinkSync(tempFilePath);
         }
         return hash;
       })
