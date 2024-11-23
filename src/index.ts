@@ -121,7 +121,8 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       await session.send(session.text(".image-to-add"));
       const reply = h.parse(await session.prompt());
       if (reply[0].type !== "image" && reply[0].type !== "img") {
-        return await session.send(session.text(".bad-image"));
+        await session.send(session.text(".bad-image"));
+        return
       }
       const img_to_add = reply[0].attrs;
       // 建文件夹
@@ -170,7 +171,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       await session.send(session.text(".pre-del"));
       const reply = h.parse(await session.prompt());
       if (reply[0].type !== "text") {
-        return await session.send(session.text(".text-only"));
+        return session.text(".text-only");
       }
       const num = parseInt(reply[0].attrs.content);
       console.log(num);
@@ -178,7 +179,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
         $.eq(row.pic, num)
       );
       if (!fq_pics.length) {
-        return await session.send(session.text(".non-exist"));
+        return session.text(".non-exist");
       }
       const fq_pic = fq_pics[0];
       await ctx.database.remove("imageBlockerHash", {
@@ -211,13 +212,13 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
     }
     const hashes_to_check = await Promise.all(
       images_to_check.map(async (img) => {
-        let hash = await ctx.cache.get("image-blocker", img.file_unique);
+        let hash = await ctx.cache.get("image-blocker", img.filename.split(".")[0]);
         if (!hash) {
           const buffer = Buffer.from(
             await ctx.http.get(img.src, { responseType: "arraybuffer" })
           );
           const image = await sharp(buffer).png().toBuffer();
-          const tempFilePath = path.join(ctx.baseDir, "temp", `${img.file_unique}.png`);
+          const tempFilePath = path.join(ctx.baseDir, "cache", `${img.filename.split(".")[0]}.png`);
           fs.writeFileSync(tempFilePath, image);
           hash = await imghash.hash(tempFilePath);
           ctx.cache.set(
