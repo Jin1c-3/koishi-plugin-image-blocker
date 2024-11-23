@@ -4,7 +4,6 @@ import imghash from "imghash";
 import leven from "leven";
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
 
 export const name = "image-blocker";
 export const inject = ["database", "cache"];
@@ -121,8 +120,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       await session.send(session.text(".image-to-add"));
       const reply = h.parse(await session.prompt());
       if (reply[0].type !== "image" && reply[0].type !== "img") {
-        await session.send(session.text(".bad-image"));
-        return
+        return await session.send(session.text(".bad-image"));
       }
       const img_to_add = reply[0].attrs;
       // 建文件夹
@@ -141,15 +139,15 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
         await ctx.http.get(img_to_add.src, { responseType: "arraybuffer" })
       );
       // 转存图片
-      const image = await sharp(buffer).png().toBuffer();
+      // const image = await sharp(buffer).png().toBuffer();
       const pic_name =
         (await ctx.database
           .select("imageBlockerHash")
           .execute((row) => $.max(row.pic))) + 1;
       const pic_path = path.join(root, `${pic_name}.png`);
-      fs.writeFileSync(pic_path, image);
+      fs.writeFileSync(pic_path, buffer);
       // 获取图片hash
-      const hash = await imghash.hash(image);
+      const hash = await imghash.hash(pic_path);
       // 添加到数据库
       await ctx.database.create("imageBlockerHash", {
         pic: pic_name,
@@ -171,7 +169,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       await session.send(session.text(".pre-del"));
       const reply = h.parse(await session.prompt());
       if (reply[0].type !== "text") {
-        return session.text(".text-only");
+        return await session.send(session.text(".text-only"));
       }
       const num = parseInt(reply[0].attrs.content);
       console.log(num);
@@ -179,7 +177,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
         $.eq(row.pic, num)
       );
       if (!fq_pics.length) {
-        return session.text(".non-exist");
+        return await session.send(session.text(".non-exist"));
       }
       const fq_pic = fq_pics[0];
       await ctx.database.remove("imageBlockerHash", {
@@ -217,9 +215,9 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
           const buffer = Buffer.from(
             await ctx.http.get(img.src, { responseType: "arraybuffer" })
           );
-          const image = await sharp(buffer).png().toBuffer();
+          // const image = await sharp(buffer).png().toBuffer();
           const tempFilePath = path.join(ctx.baseDir, "cache", `${img.filename.split(".")[0]}.png`);
-          fs.writeFileSync(tempFilePath, image);
+          fs.writeFileSync(tempFilePath, buffer);
           hash = await imghash.hash(tempFilePath);
           ctx.cache.set(
             "image-blocker",
