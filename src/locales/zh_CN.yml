@@ -1,0 +1,21 @@
+commands:
+  image-blocker:
+    description: 将图片添加为违禁图，让bot撤回。
+    options:
+      list: 列出所有的违禁图
+      page: 列出违禁图的第几页
+    list:
+      messages:
+        has-no-image: 没有违禁图哟
+    add:
+      messages:
+        image-to-add: 请发送违禁图
+        bad-image: 请发送图片，暂不支持其他类型
+        success-to-add: 添加违禁图成功
+        already-has: 这个违禁图已经存在
+    del:
+      messages:
+        pre-del: 请输入要删除的序号
+        text-only: 请发送文本
+        non-exist: 没有这个违禁图
+        del-success: 删除成功

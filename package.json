@@ -8,15 +8,24 @@
     "lib",
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jin1c-3/koishi-plugin-image-blocker.git"
+  },
   "license": "MIT",
-  "scripts": {},
   "keywords": [
     "chatbot",
     "koishi",
     "plugin"
   ],
-  "devDependencies": {},
   "peerDependencies": {
     "koishi": "4.18.1"
+  },
+  "dependencies": {
+    "@koishijs/cache": "^2.1.0",
+    "imghash": "^0.0.9",
+    "leven": "^4.0.0",
+    "sharp": "^0.33.5",
+    "tmp-promise": "^3.0.3"
   }
 }
