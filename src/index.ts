@@ -1,7 +1,7 @@
 import { Context, Schema, h, $ } from "koishi";
 import {} from "@koishijs/cache";
 import imghash from "imghash";
-import leven from "leven";
+import { distance as leven } from "fastest-levenshtein";
 import fs from "fs";
 import path from "path";
 
