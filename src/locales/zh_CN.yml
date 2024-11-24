@@ -12,7 +12,7 @@ commands:
         image-to-add: 请发送违禁图
         bad-image: 请发送图片，暂不支持其他类型
         success-to-add: 添加违禁图成功
-        already-has: 这个违禁图已经存在
+        guild_alredy_has: 这个违禁图在此频道已经存在
     del:
       messages:
         pre-del: 请输入要删除的序号

@@ -72,7 +72,6 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       guild: "string",
       file_unique: "string",
     },
-    { primary: ["file_unique", "guild"] }
   );
 
   ctx
@@ -128,32 +127,42 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       if (!fs.existsSync(root)) {
         fs.mkdirSync(root, { recursive: true });
       }
-      const alredy_has = await ctx.database.get("imageBlockerHash", {
-        file_unique: img_to_add.filename.split(".")[0],
-      });
-      if (alredy_has.length) {
-        return session.text(".already-has");
-      }
-      // 获取图片数据
-      const buffer = Buffer.from(
-        await ctx.http.get(img_to_add.src, { responseType: "arraybuffer" })
+      const guild_alredy_has = await ctx.database.get(
+        "imageBlockerGuild",
+        (row) =>
+          $.and(
+            $.eq(row.file_unique, img_to_add.filename.split(".")[0]),
+            $.eq(row.guild, session.guildId)
+          )
       );
-      // 转存图片
-      // const image = await sharp(buffer).png().toBuffer();
-      const pic_name =
-        (await ctx.database
-          .select("imageBlockerHash")
-          .execute((row) => $.max(row.pic))) + 1;
-      const pic_path = path.join(root, `${pic_name}.png`);
-      fs.writeFileSync(pic_path, buffer);
-      // 获取图片hash
-      const hash = await imghash.hash(pic_path);
-      // 添加到数据库
-      await ctx.database.create("imageBlockerHash", {
-        pic: pic_name,
+      if (guild_alredy_has.length) {
+        return session.text(".guild_alredy_has");
+      }
+      const pic_already_has = await ctx.database.get("imageBlockerHash", {
         file_unique: img_to_add.filename.split(".")[0],
-        hash: hash,
       });
+      if (!pic_already_has.length) {
+        // 获取图片数据
+        const buffer = Buffer.from(
+          await ctx.http.get(img_to_add.src, { responseType: "arraybuffer" })
+        );
+        // 转存图片
+        // const image = await sharp(buffer).png().toBuffer();
+        const pic_name =
+          (await ctx.database
+            .select("imageBlockerHash")
+            .execute((row) => $.max(row.pic))) + 1;
+        const pic_path = path.join(root, `${pic_name}.png`);
+        fs.writeFileSync(pic_path, buffer);
+        // 获取图片hash
+        const hash = await imghash.hash(pic_path);
+        // 添加到数据库
+        await ctx.database.create("imageBlockerHash", {
+          pic: pic_name,
+          file_unique: img_to_add.filename.split(".")[0],
+          hash: hash,
+        });
+      }
       await ctx.database.create("imageBlockerGuild", {
         guild: session.guildId,
         file_unique: img_to_add.filename.split(".")[0],
