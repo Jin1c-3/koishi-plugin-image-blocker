@@ -18,7 +18,7 @@ export const Config: Schema<Config> = Schema.object({
     .role("slider")
     .min(0)
     .max(14)
-    .default(2)
+    .default(3)
     .description(
       "相似度阈值，越小则越难判定为相似图片，越大则越容易判定为相似图片，不建议超过6"
     ),
@@ -35,6 +35,7 @@ interface imageBlockerHashTable {
 
 // 多对多关系
 interface imageBlockerGuildTable {
+  id: number;
   guild: string;
   file_unique: string;
 }
@@ -69,9 +70,14 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
   ctx.model.extend(
     "imageBlockerGuild",
     {
+      id: "unsigned",
       guild: "string",
       file_unique: "string",
     },
+    {
+      primary: ["id"],
+      autoInc: true,
+    }
   );
 
   ctx
@@ -163,7 +169,12 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
           hash: hash,
         });
       }
+      const id =
+        (await ctx.database
+          .select("imageBlockerGuild")
+          .execute((row) => $.max(row.id))) + 1;
       await ctx.database.create("imageBlockerGuild", {
+        id: id,
         guild: session.guildId,
         file_unique: img_to_add.filename.split(".")[0],
       });
