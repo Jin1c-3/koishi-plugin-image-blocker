@@ -274,5 +274,6 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
         }
       }
     }
-  });
+    return next();
+  }, true);
 }
