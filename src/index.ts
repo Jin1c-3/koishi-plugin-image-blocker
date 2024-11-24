@@ -180,9 +180,6 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
         return await session.send(session.text(".non-exist"));
       }
       const fq_pic = fq_pics[0];
-      await ctx.database.remove("imageBlockerHash", {
-        file_unique: fq_pic.file_unique,
-      });
       await ctx.database.remove("imageBlockerGuild", (row) =>
         $.and(
           $.eq(row.file_unique, fq_pic.file_unique),
@@ -192,20 +189,24 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       return session.text(".del-success");
     });
 
-  ctx.on("message", async (session) => {
+  ctx.middleware(async (session, next) => {
     ctx = ctx.platform("onebot").guild();
     const images_to_check = session.elements
       .filter((element) => element.type === "image" || element.type === "img")
       .map((element) => element.attrs);
     if (!images_to_check.length) {
-      return;
+      return next();
     }
-    const fq_guild = await ctx.database.get("imageBlockerGuild", (row) =>
-      $.eq(row.guild, session.guildId)
-    );
+    const fq_guild = (
+      await ctx.database.get("imageBlockerGuild", (row) =>
+        $.eq(row.guild, session.guildId)
+      )
+    ).map((row) => row.file_unique);
     if (
       images_to_check.some((i) => fq_guild.includes(i.filename.split(".")[0]))
     ) {
+      await session.bot.deleteMessage(session.guildId, session.messageId);
+      logger.info("found identical image");
       return;
     }
     const hashes_to_check = await Promise.all(
@@ -227,7 +228,6 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
             root,
             `${img.filename.split(".")[0]}.png`
           );
-          logger.info(tempFilePath)
           fs.writeFileSync(tempFilePath, buffer);
           hash = await imghash.hash(tempFilePath);
           ctx.cache.set(
@@ -242,7 +242,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
       })
     );
     const fq_hashes = await ctx.database.get("imageBlockerHash", {
-      file_unique: fq_guild.map((fg) => fg.file_unique),
+      file_unique: fq_guild,
     });
     for (const rule_hash of fq_hashes) {
       for (const now_hash of hashes_to_check) {
