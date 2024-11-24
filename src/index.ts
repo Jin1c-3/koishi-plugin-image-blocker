@@ -232,7 +232,7 @@ export function apply(
       )
     ).map((row) => row.file_unique);
     if (!fq_guild.length) {
-      return;
+      return next();
     }
     if (
       images_to_check.some((i) => fq_guild.includes(i.filename.split(".")[0]))

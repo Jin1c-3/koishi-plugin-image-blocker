@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-image-blocker",
   "description": "支持添加、删除违禁图片，支持相似图片。可以用来防奶龙（）",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
