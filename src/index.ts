@@ -10,6 +10,9 @@ export const inject = ["database", "cache"];
 
 export interface Config {
   similarity: number;
+  recall_flag: boolean;
+  mute_flag: boolean;
+  mute_time: number;
   cache_time: number;
 }
 
@@ -22,6 +25,9 @@ export const Config: Schema<Config> = Schema.object({
     .description(
       "相似度阈值，越小则越难判定为相似图片，越大则越容易判定为相似图片，不建议超过6"
     ),
+  recall_flag: Schema.boolean().default(true).description("是否撤回相似图片"),
+  mute_flag: Schema.boolean().default(false).description("是否禁言发送者"),
+  mute_time: Schema.natural().description("禁言时长，单位：分钟").default(30),
   cache_time: Schema.natural()
     .description("图片哈希值的缓存时间，单位：小时")
     .default(24 * 7),
@@ -54,7 +60,10 @@ declare module "@koishijs/cache" {
   }
 }
 
-export function apply(ctx: Context, { similarity, cache_time }: Config) {
+export function apply(
+  ctx: Context,
+  { similarity, cache_time, recall_flag, mute_flag, mute_time }: Config
+) {
   ctx.i18n.define("zh-CN", require("./locales/zh_CN"));
   const logger = ctx.logger("image-blocker");
 
@@ -210,7 +219,7 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
     });
 
   ctx.middleware(async (session, next) => {
-    ctx = ctx.platform("onebot").guild();
+    ctx = ctx.guild();
     const images_to_check = session.elements
       .filter((element) => element.type === "image" || element.type === "img")
       .map((element) => element.attrs);
@@ -222,6 +231,9 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
         $.eq(row.guild, session.guildId)
       )
     ).map((row) => row.file_unique);
+    if (!fq_guild.length) {
+      return;
+    }
     if (
       images_to_check.some((i) => fq_guild.includes(i.filename.split(".")[0]))
     ) {
@@ -231,34 +243,43 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
     }
     const hashes_to_check = await Promise.all(
       images_to_check.map(async (img) => {
-        let hash = await ctx.cache.get(
-          "image-blocker",
-          img.filename.split(".")[0]
-        );
-        if (!hash) {
-          const buffer = Buffer.from(
-            await ctx.http.get(img.src, { responseType: "arraybuffer" })
-          );
-          // const image = await sharp(buffer).png().toBuffer();
-          const root = path.join(ctx.baseDir, "data", name, "cache");
-          if (!fs.existsSync(root)) {
-            fs.mkdirSync(root, { recursive: true });
-          }
-          const tempFilePath = path.join(
-            root,
-            `${img.filename.split(".")[0]}.png`
-          );
-          fs.writeFileSync(tempFilePath, buffer);
-          hash = await imghash.hash(tempFilePath);
-          ctx.cache.set(
+        try {
+          let hash = await ctx.cache.get(
             "image-blocker",
-            img.filename.split(".")[0],
-            hash,
-            cache_time * 60 * 60 * 1000
+            img.filename.split(".")[0]
           );
-          fs.unlinkSync(tempFilePath);
+          if (!hash) {
+            const buffer = Buffer.from(
+              await ctx.http.get(img.src, { responseType: "arraybuffer" })
+            );
+            const root = path.join(
+              ctx.baseDir,
+              "data",
+              "image-blocker",
+              "cache"
+            );
+            if (!fs.existsSync(root)) {
+              fs.mkdirSync(root, { recursive: true });
+            }
+            const tempFilePath = path.join(
+              root,
+              `${img.filename.split(".")[0]}.png`
+            );
+            await fs.promises.writeFile(tempFilePath, buffer); // 使用异步文件操作
+            hash = await imghash.hash(tempFilePath);
+            await ctx.cache.set(
+              "image-blocker",
+              img.filename.split(".")[0],
+              hash,
+              cache_time * 60 * 60 * 1000
+            );
+            await fs.promises.unlink(tempFilePath); // 使用异步文件操作
+          }
+          return hash;
+        } catch (error) {
+          logger.error("Error processing image: ", error);
+          return null; // 确保数组长度一致
         }
-        return hash;
       })
     );
     const fq_hashes = await ctx.database.get("imageBlockerHash", {
@@ -269,11 +290,18 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
         const distance = leven(rule_hash.hash, now_hash);
         if (distance <= similarity) {
           logger.info("found similar image, distance: ", distance);
-          await session.bot.deleteMessage(session.guildId, session.messageId);
+          if (recall_flag)
+            await session.bot.deleteMessage(session.guildId, session.messageId);
+          if (mute_flag)
+            await session.bot.muteGuildMember(
+              session.guildId,
+              session.userId,
+              mute_time * 60000
+            );
           return;
         }
       }
     }
     return next();
-  }, true);
+  });
 }
