@@ -237,7 +237,14 @@ export function apply(
     if (
       images_to_check.some((i) => fq_guild.includes(i.filename.split(".")[0]))
     ) {
-      await session.bot.deleteMessage(session.guildId, session.messageId);
+      if (recall_flag)
+        await session.bot.deleteMessage(session.guildId, session.messageId);
+      if (mute_flag)
+        await session.bot.muteGuildMember(
+          session.guildId,
+          session.userId,
+          mute_time * 60000
+        );
       logger.info("found identical image");
       return;
     }
