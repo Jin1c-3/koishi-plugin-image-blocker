@@ -210,13 +210,24 @@ export function apply(ctx: Context, { similarity, cache_time }: Config) {
     }
     const hashes_to_check = await Promise.all(
       images_to_check.map(async (img) => {
-        let hash = await ctx.cache.get("image-blocker", img.filename.split(".")[0]);
+        let hash = await ctx.cache.get(
+          "image-blocker",
+          img.filename.split(".")[0]
+        );
         if (!hash) {
           const buffer = Buffer.from(
             await ctx.http.get(img.src, { responseType: "arraybuffer" })
           );
           // const image = await sharp(buffer).png().toBuffer();
-          const tempFilePath = path.join(ctx.baseDir, "cache", `${img.filename.split(".")[0]}.png`);
+          const root = path.join(ctx.baseDir, "data", name, "cache");
+          if (!fs.existsSync(root)) {
+            fs.mkdirSync(root, { recursive: true });
+          }
+          const tempFilePath = path.join(
+            root,
+            `${img.filename.split(".")[0]}.png`
+          );
+          logger.info(tempFilePath)
           fs.writeFileSync(tempFilePath, buffer);
           hash = await imghash.hash(tempFilePath);
           ctx.cache.set(
